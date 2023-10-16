@@ -115,8 +115,8 @@ main() {
 
 locate() {
   for dir in $(find "${CHARTS_DIR}" -type d -mindepth 1 -maxdepth 1); do
-    echo $dir | grep -qEv ${IGNORE_CHARTS};
-    if [[ "${dir}" == "${CHARTS_DIR}/$chart" ]]; then
+    echo $dir | grep -Evq ${IGNORE_CHARTS};
+    if [[ $? -gt 0 ]]; then
       echo "===== Found $dir in ignore chart list";
       continue;
     fi
