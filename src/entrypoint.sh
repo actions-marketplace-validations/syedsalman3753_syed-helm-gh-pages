@@ -128,7 +128,7 @@ locate() {
     fi
   done
 
-  echo "CHARTS LIST : ${CHARTS}"
+  echo "CHARTS LIST : ${CHARTS[*]}"
 }
 
 download() {
