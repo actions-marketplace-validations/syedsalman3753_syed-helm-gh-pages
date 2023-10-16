@@ -181,7 +181,11 @@ chart_lint() {
 
   for chart in ${CHARTS[*]}; do
     helm template $chart | yq e '. | select(.kind == "Deployment" or .kind == "StatefulSet")' > $chart.yaml
-    yamale -s ./health-check-schema.yaml "$chart.yaml" --no-strict
+
+    ## The $chart.yaml file is not-empty.
+    if [[ -s $chart.yaml ]]; then
+      yamale -s ./health-check-schema.yaml "$chart.yaml" --no-strict
+    fi
   done
 }
 
