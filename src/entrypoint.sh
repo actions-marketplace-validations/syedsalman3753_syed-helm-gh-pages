@@ -127,6 +127,8 @@ locate() {
       echo "Ignoring non-chart directory ${dir}"
     fi
   done
+
+  echo "CHARTS LIST : ${CHARTS}"
 }
 
 download() {

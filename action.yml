@@ -1,6 +1,6 @@
-name: 'SYED Helm Publisher'
+name: 'MOSIP Helm Publisher'
 description: 'A GitHub Action for publishing Helm charts with Github Pages'
-author: 'Stefan Prodan'
+author: 'MOSIP'
 branding:
   icon: 'command'
   color: 'blue'
