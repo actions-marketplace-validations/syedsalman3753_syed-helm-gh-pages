@@ -115,9 +115,7 @@ main() {
 
 locate() {
   for dir in $(find "${CHARTS_DIR}" -type d -mindepth 1 -maxdepth 1); do
-    echo "DIR : $dir"
-    count=$(echo $dir | grep -Evwc ${IGNORE_CHARTS});
-    echo "count $count"
+    count=$(echo $dir | grep -Evwc ${IGNORE_CHARTS} || true);
     if [[ $count -eq 0 ]]; then
       echo "===== Found $dir in ignore chart list";
       continue;
