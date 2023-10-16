@@ -12,7 +12,7 @@ inputs:
     description: "The charts directory, defaults to `charts`"
     required: false
   ignore_charts:
-    description: "Ignore the charts present in <charts_dir>, provide the list of chart_names separated by spaces"
+    description: "Ignore the charts present in <charts_dir>, provide the list of chart_names separated by pipe (|)"
     required: false
     default: ""
   charts_url:
