@@ -104,6 +104,7 @@ main() {
   ls ./
   cat ignore-dependency-chart.txt
   if [[ -f ignore-dependency-chart.txt ]]; then
+    echo "under if condition: ignore-dependency-chart.txt "
     remove_dependencies
   fi
   locate
@@ -121,8 +122,10 @@ main() {
 }
 
 remove_dependencies() {
+  echo "under remove_dependencies func"
   ## Add dependency charts to .helmignore file
   while IFS='\n' read line; do
+    echo "under while of remove_depen func : line : $line"
     if [[ -z $line ]]; then
       continue
     fi
