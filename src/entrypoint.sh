@@ -123,6 +123,8 @@ main() {
 
 remove_dependencies() {
   echo "under remove_dependencies func"
+  ls ./
+  cat ignore-dependency-chart.txt
   ## Add dependency charts to .helmignore file
   while IFS='\n' read line; do
     echo "under while of remove_depen func : line : $line"
