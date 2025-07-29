@@ -99,7 +99,10 @@ main() {
       INDEX_DIR=${TARGET_DIR}
   fi
 
-
+  echo "================================="
+  echo "cat ignore-dependency-chart.txt file"
+  ls ./
+  cat ignore-dependency-chart.txt
   if [[ -f ignore-dependency-chart.txt ]]; then
     remove_dependencies
   fi
