@@ -33,9 +33,16 @@ CHART_VERSION=${13}
 INDEX_DIR=${14}
 ENTERPRISE_URL=${15}
 DEPENDENCIES=${16}
+LINTING_HEALTH_CHECK_SCHEMA_YAML_URL=${17}
+LINTING_CHART_SCHEMA_YAML_URL=${18}
+LINTING_LINTCONF_YAML_URL=${19}
+LINTING_CHART_TESTING_CONFIG_YAML_URL=${20}
+IGNORE_CHARTS=${21}
+CHART_PUBLISH=${22}
 
 CHARTS=()
 CHARTS_TMP_DIR=$(mktemp -d)
+git config --global --add safe.directory /github/workspace
 REPO_ROOT=$(git rev-parse --show-toplevel)
 REPO_URL=""
 
@@ -92,19 +99,60 @@ main() {
       INDEX_DIR=${TARGET_DIR}
   fi
 
+  echo "================================="
+  echo "cat ignore-dependency-chart.txt file"
+  ls ./
+  cat ignore-dependency-chart.txt
+  if [[ -f ignore-dependency-chart.txt ]]; then
+    echo "under if condition: ignore-dependency-chart.txt "
+    remove_dependencies
+  fi
   locate
   download
   get_dependencies
   dependencies
-  if [[ "$LINTING" != "off" ]]; then
+  if [[ "$LINTING" != "NO" ]]; then
     lint
+    chart_lint
   fi
-  package
-  upload
+  if [[ "$CHART_PUBLISH" != "NO" ]]; then
+    package
+    upload
+  fi
+}
+
+remove_dependencies() {
+  echo "under remove_dependencies func"
+  ls ./
+  cat ignore-dependency-chart.txt
+  ## Add dependency charts to .helmignore file
+  while IFS='\n' read line; do
+    echo "under while of remove_depen func : line : $line"
+    if [[ -z $line ]]; then
+      continue
+    fi
+    echo "Chart & its dependency charts to ignore : $line";
+
+    chart_name=$( echo "$line" |awk -F ': ' '{print $1}' );
+    ignore_dep_chart=$( echo "$line" |awk -F ': ' '{print $2}' | sed 's/ /\n/g' | sed "s/'//g");
+
+    echo "Chart_name : $chart_name";
+    echo "ignore_dep_chart : $ignore_dep_chart";
+
+    for dep_chart in $ignore_dep_chart; do
+      yq e -i 'del(.dependencies[] | select(.name == "'$dep_chart'"))' $chart_name/Chart.yaml
+    done
+  done < ignore-dependency-chart.txt
 }
 
 locate() {
   for dir in $(find "${CHARTS_DIR}" -type d -mindepth 1 -maxdepth 1); do
+    chart=$( echo $dir | awk -F '/' '{print $2}' )
+    count=$(echo $chart | grep -Evwc ${IGNORE_CHARTS} || true);
+    if [[ $count -eq 0 ]]; then
+      echo "===== Found $dir in ignore chart list";
+      continue;
+    fi
     if [[ -f "${dir}/Chart.yaml" ]]; then
       CHARTS+=("${dir}")
       echo "Found chart directory ${dir}"
@@ -112,6 +160,13 @@ locate() {
       echo "Ignoring non-chart directory ${dir}"
     fi
   done
+
+  if [ ${#CHARTS[@]} -eq 0 ]; then
+      echo "The CHARTS list is empty; SKIPPING OPERATION;"
+      exit 0;
+  fi
+
+  echo "CHARTS LIST : ${CHARTS[*]}"
 }
 
 download() {
@@ -146,12 +201,42 @@ get_dependencies() {
 
 dependencies() {
   for chart in ${CHARTS[@]}; do
+    echo " ========================== Dependency update :: Chart name: $chart ============================ ";
     helm dependency update "${chart}"
   done
 }
 
 lint() {
   helm lint ${CHARTS[*]}
+}
+
+chart_lint() {
+  wget $LINTING_HEALTH_CHECK_SCHEMA_YAML_URL
+  wget $LINTING_CHART_SCHEMA_YAML_URL
+  wget $LINTING_LINTCONF_YAML_URL
+  wget $LINTING_CHART_TESTING_CONFIG_YAML_URL
+
+  for chart in ${CHARTS[*]}; do
+    echo " ======================= Chart-testing Lint :: Chart name: $chart ======================= ";
+    ct lint --config=./chart-testing-config.yaml --charts=${chart};
+  done
+
+  for chart in ${CHARTS[*]}; do
+    echo " ================ Health check for Deployment/Statefulset :: Chart name: $chart ================== ";
+    if [[ -f ignore-health-check.txt ]]; then
+      count=$(grep -Ec "$chart$" ignore-health-check.txt  || true )
+      if [[ $count -eq 1 ]]; then
+        echo -e "Chart \"$chart\" found in \"ignore-health-check.txt\" file; SKIPPING HEALTH CHECK;"
+        continue
+      fi
+    fi
+    helm template $chart | yq e '. | select(.kind == "Deployment" or .kind == "StatefulSet")' > $chart.yaml
+
+    ## The $chart.yaml file is not-empty.
+    if [[ -s $chart.yaml ]]; then
+      yamale -s ./health-check-schema.yaml "$chart.yaml" --no-strict
+    fi
+  done
 }
 
 package() {
@@ -179,6 +264,7 @@ upload() {
 
   charts=$(cd ${CHARTS_TMP_DIR} && ls *.tgz | xargs)
 
+  mkdir -p ${INDEX_DIR}
   mkdir -p ${TARGET_DIR}
 
   if [[ -f "${INDEX_DIR}/index.yaml" ]]; then
@@ -188,14 +274,15 @@ upload() {
     mv -f ${CHARTS_TMP_DIR}/index.yaml ${INDEX_DIR}/index.yaml
   else
     echo "No index found, generating a new one"
+    helm repo index ${CHARTS_TMP_DIR} --url ${CHARTS_URL}
     mv -f ${CHARTS_TMP_DIR}/*.tgz ${TARGET_DIR}
-    helm repo index ${INDEX_DIR} --url ${CHARTS_URL}
+    mv -f ${CHARTS_TMP_DIR}/index.yaml ${INDEX_DIR}
   fi
 
   git add ${TARGET_DIR}
   git add ${INDEX_DIR}/index.yaml
 
-  git commit -m "Publish $charts"
+  git commit -s -m "Publish $charts"
   git push origin ${BRANCH}
 
   popd >& /dev/null
